@@ -1,3 +1,4 @@
+# booking_bot.py
 from telegram import Update, InputFile
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes
 import os
@@ -7,10 +8,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+
 # States for ConversationHandler
 FROM, TO, DATE, CLASS, TRAIN_TYPE, NUM_PASSENGERS, PASSENGER_DETAILS, CREDENTIALS, CAPTCHA = range(9)
 
-# Temporary storage for user session (can be improved using Redis)
+# Temporary storage for user session
 user_sessions = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -54,23 +56,40 @@ async def passenger_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return CREDENTIALS
 
 async def credentials(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    creds = update.message.text.split(',')
+    creds = update.message.text.split(', ')
     user_sessions[update.effective_user.id]['credentials'] = {'username': creds[0], 'password': creds[1]}
-    await update.message.reply_text("Thanks! We're starting the booking process now.")
-# ``````````````+````
-    # Call to Web Automation
-    # from automation_script import automate_booking
-    # captcha_image_path = automate_booking(user_sessions[update.effective_user.id])
+    await update.message.reply_text("Thanks! We're starting the booking process now... 🚀")
+
+    from automation_script import automate_booking
+    captcha_image_path, browser, page = await automate_booking(user_sessions[update.effective_user.id])
+
+    # Save browser and page inside user session
+    user_sessions[update.effective_user.id]['browser'] = browser
+    user_sessions[update.effective_user.id]['page'] = page
+    user_sessions[update.effective_user.id]['captcha_image_path'] = captcha_image_path
 
     # Send captcha to user
-    # await update.message.reply_photo(InputFile(captcha_image_path), caption="Enter the captcha shown:")
+    with open(captcha_image_path, 'rb') as captcha_file:
+        await update.message.reply_photo(captcha_file, caption="🛡 Please enter the captcha text:")
+
     return CAPTCHA
 
 async def handle_captcha(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_sessions[update.effective_user.id]['captcha'] = update.message.text
-    # from automation_script import complete_booking
-    # ticket_pdf_path = complete_booking(user_sessions[update.effective_user.id])
-    # await update.message.reply_document(InputFile(ticket_pdf_path), caption="Here is your booked ticket!")
+    user_id = update.effective_user.id
+    user_sessions[user_id]['captcha'] = update.message.text
+
+    from automation_script import complete_booking
+    browser = user_sessions[user_id]['browser']
+    page = user_sessions[user_id]['page']
+
+    ticket_pdf_path = await complete_booking(user_sessions[user_id], browser, page)
+
+    await update.message.reply_document(InputFile(ticket_pdf_path), caption="✅ Here is your booked ticket! Safe travels!")
+
+    # Cleanup session
+    await browser.close()
+    del user_sessions[user_id]
+
     return ConversationHandler.END
 
 # Bot Setup
@@ -87,7 +106,7 @@ conv_handler = ConversationHandler(
         NUM_PASSENGERS: [MessageHandler(filters.TEXT & ~filters.COMMAND, num_passengers)],
         PASSENGER_DETAILS: [MessageHandler(filters.TEXT & ~filters.COMMAND, passenger_details)],
         CREDENTIALS: [MessageHandler(filters.TEXT & ~filters.COMMAND, credentials)],
-        CAPTCHA: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_captcha)]
+        CAPTCHA: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_captcha)],
     },
     fallbacks=[]
 )
