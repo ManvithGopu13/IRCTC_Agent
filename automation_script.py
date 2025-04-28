@@ -55,7 +55,7 @@ async def select_train_and_class_and_book(page, session_data):
                                 await book_now_button.click()
                                 await page.wait_for_timeout(1000)
 
-                                await page.click("button.ng-tns-c56-17.ui-confirmdialog-acceptbutton")
+                                # await page.click("button.ng-tns-c56-17.ui-confirmdialog-acceptbutton")
 
                                 print(f"Booking initiated for train {target_train_number}")
                                 return
@@ -72,31 +72,40 @@ async def automate_booking(session_data):
     """
     playwright = await async_playwright().start()
 
-    user_data_dir = "./playwright_user_data"
+    # user_data_dir = "./playwright_user_data"
+    # user_data_dir = "C:\\Users\\saish\\AppData\\Local\\Google\\Chrome\\User Data"
+    # chrome_executable_path = "C:\\Users\\saish\\Downloads\\chrome-win64\\chrome.exe"
 
-    browser = await playwright.chromium.launch_persistent_context(
-        user_data_dir,
-        headless=False,  # show browser
-        slow_mo=50,      # slow actions to mimic human
-        args=[
-            "--start-maximized",
-            "--disable-blink-features=AutomationControlled",
-        ],
-        viewport={"width": 1920, "height": 1080}
-    )
+    browser = await playwright.chromium.connect_over_cdp("http://localhost:9222")
     page = await browser.new_page()
 
     # Navigate to IRCTC site
     await page.goto("https://www.irctc.co.in/nget/train-search")
     await page.wait_for_timeout(3000)
 
-    # Click on Login button
-    await page.click('a.search_btn.loginText')
+
+    # IF the page has menu button 
+    await page.click('div.h_menu_drop_button')
+    await page.wait_for_timeout(1000)
+    await page.click('button.search_btn')
+
+
+    # Click on Login button withno menu button
+    # await page.click('a.search_btn.loginText')
     await page.wait_for_timeout(1000)
 
     # Fill login credentials
-    await page.fill("input[formcontrolname='userid']", session_data['credentials']['username'])
-    await page.fill("input[formcontrolname='password']", session_data['credentials']['password'])
+    # await page.fill("input[formcontrolname='userid']", session_data['credentials']['username'])
+    # await page.fill("input[formcontrolname='password']", session_data['credentials']['password'])
+
+    await page.wait_for_selector("input[formcontrolname='userid']")
+
+    # Instead of fill, do human-like typing
+    await page.click("input[formcontrolname='userid']")
+    await page.keyboard.type(session_data['credentials']['username'], delay=150)
+
+    await page.click("input[formcontrolname='password']")
+    await page.keyboard.type(session_data['credentials']['password'], delay=150)
 
     # Wait for captcha to appear
     await page.wait_for_selector("img.captcha-img")
@@ -114,21 +123,42 @@ async def complete_booking(session_data, browser, page):
     searches train, selects class, fills passengers, and proceeds to booking.
     """
     # Fill captcha
-    await page.fill("input[formcontrolname='captcha']", session_data['captcha'])
+    # await page.fill("input[formcontrolname='captcha']", session_data['captcha'])
+    # await page.click("button.search_btn.train_Search.train_Search_custom_hover")
+    # await page.wait_for_timeout(5000)
+
+    await page.click("input[formcontrolname='captcha']")
+    await page.keyboard.type(session_data['captcha'], delay=150)
+
+    await page.wait_for_timeout(500)
     await page.click("button.search_btn.train_Search.train_Search_custom_hover")
-    await page.wait_for_timeout(5000)
 
     # Search for Trains
-    await page.fill("input.ng-tns-c57-8", session_data['from'])
-    await page.wait_for_timeout(500)
+    # await page.fill("input.ng-tns-c57-8", session_data['from'])
+    # await page.wait_for_timeout(500)
+    # await page.keyboard.press("Enter")
+    # await page.wait_for_timeout(1000)
+    # await page.fill("input.ng-tns-c57-9", session_data['to'])
+    # await page.wait_for_timeout(1000)
+    # await page.keyboard.press("Enter")
+    # await page.wait_for_timeout(1000)
+    # await page.fill("input.ng-tns-c58-10", session_data['date'])
+    # await page.wait_for_timeout(2000)
+    # await page.keyboard.press("Enter")
+    # await page.wait_for_timeout(1000)    
+
+    await page.click("input.ng-tns-c57-8")
+    await page.keyboard.type(session_data['from'], delay=150)
     await page.keyboard.press("Enter")
     await page.wait_for_timeout(1000)
-    await page.fill("input.ng-tns-c57-9", session_data['to'])
-    await page.wait_for_timeout(500)
+    await page.click("input.ng-tns-c57-9")
+    await page.keyboard.type(session_data['to'], delay=150)
     await page.keyboard.press("Enter")
     await page.wait_for_timeout(1000)
-    await page.fill("input.ng-tns-c58-10", session_data['date'])
-    await page.wait_for_timeout(2000)
+    await page.click("input.ng-tns-c58-10")
+    await page.keyboard.press('Control+A')  # or 'Meta+A' on Mac
+    await page.keyboard.press('Backspace')
+    await page.keyboard.type(session_data['date'], delay=150)
     await page.keyboard.press("Enter")
     await page.wait_for_timeout(1000)
 
