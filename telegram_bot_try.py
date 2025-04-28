@@ -26,7 +26,7 @@ async def from_station(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def to_station(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_sessions[update.effective_user.id]['to'] = update.message.text
-    await update.message.reply_text("Enter date of journey (dd-mm-yyyy):")
+    await update.message.reply_text("Enter date of journey (dd/mm/yyyy):")
     return DATE
 
 async def date_of_journey(update: Update, context: ContextTypes.DEFAULT_TYPE):

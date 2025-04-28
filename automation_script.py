@@ -2,6 +2,67 @@
 from playwright.async_api import async_playwright
 import asyncio
 import os
+from datetime import datetime
+
+async def select_train_and_class_and_book(page, session_data):
+    """
+    After search, finds the correct train number, selects class, selects date, and clicks Book Now.
+    """
+    await page.wait_for_timeout(3000)  # Let search results load
+
+    # Find all train containers (Each train block on the page)
+    trains = await page.query_selector_all("div.form-group.no-pad.col-xs-12")
+
+    
+    target_train_number = session_data['train_type'].strip()
+    target_class = session_data['class'].strip()
+    print(f"{trains}, {target_train_number}, {target_class}")
+
+    # Convert session_data['date'] ("29/04/2025") --> "Tue, 29 Apr"
+    date_obj = datetime.strptime(session_data['date'], "%d/%m/%Y")
+    formatted_date = date_obj.strftime("%a, %d %b")  # "Tue, 29 Apr"
+
+    for train in trains:
+        try:
+            # Find the train number in this block
+            train_number_element = await train.query_selector("div.col-sm-5.col-xs-11.train-heading")
+            train_number_text = await train_number_element.inner_text()
+            
+            if target_train_number in train_number_text:
+                print(f"Found train {target_train_number}")
+
+                # Select Class inside that train block
+                class_buttons = await train.query_selector_all("div.pre-avl")
+                
+                for class_button in class_buttons:
+                    class_text = await class_button.inner_text()
+                    if target_class.upper() in class_text.upper():
+                        print(f"Found {target_class}")
+                        await class_button.click()
+                        await page.wait_for_timeout(1500)
+
+                        # Select Date inside availability
+                        date_buttons = await train.query_selector_all("div.pre-avl")
+                        
+                        for date_button in date_buttons:
+                            date_text = await date_button.inner_text()
+                            if formatted_date.lower() in date_text.lower():
+                                await date_button.click()
+                                await page.wait_for_timeout(1500)
+
+                                # Click Book Now
+                                book_now_button = await train.query_selector("button.btnDefault.train_Search.ng-star-inserted")
+                                await book_now_button.click()
+                                await page.wait_for_timeout(1000)
+
+                                await page.click("button.ng-tns-c56-17.ui-confirmdialog-acceptbutton")
+
+                                print(f"Booking initiated for train {target_train_number}")
+                                return
+        except Exception as e:
+            print(f"Error processing train: {e}")
+    
+    # raise Exception(f"Train {target_train_number} with class {target_class} on date {formatted_date} not found.")
 
 
 async def automate_booking(session_data):
@@ -67,20 +128,22 @@ async def complete_booking(session_data, browser, page):
     await page.keyboard.press("Enter")
     await page.wait_for_timeout(1000)
     await page.fill("input.ng-tns-c58-10", session_data['date'])
-    await page.wait_for_timeout(500)
-    # await page.keyboard.press("Enter")
+    await page.wait_for_timeout(2000)
+    await page.keyboard.press("Enter")
     await page.wait_for_timeout(1000)
 
-    await page.click("button.search_btn.train_Search")
-    await page.wait_for_timeout(5000)
+    # await page.click("button.search_btn.train_Search[type='submit']")
+    # await page.wait_for_timeout(2000)
 
-    # Select desired Train
-    await page.get_by_text(session_data['train_type']).click()
-    await page.get_by_text(session_data['class']).click()
+    await select_train_and_class_and_book(page, session_data)
 
-    # Book Ticket
-    await page.click("button[label='Book Now']")
-    await page.wait_for_timeout(3000)
+    # # Select desired Train
+    # await page.get_by_text(session_data['train_type']).click()
+    # await page.get_by_text(session_data['class']).click()
+
+    # # Book Ticket
+    # await page.click("button[label='Book Now']")
+    # await page.wait_for_timeout(3000)
 
     # Fill Passenger Details
     for idx, (name, age, gender) in enumerate(session_data['passengers']):
