@@ -65,6 +65,59 @@ async def select_train_and_class_and_book(page, session_data):
     # raise Exception(f"Train {target_train_number} with class {target_class} on date {formatted_date} not found.")
 
 
+async def fill_passenger_details(page, passengers):
+    """
+    Adds passenger slots and fills passenger details on IRCTC booking page.
+
+    Args:
+    - page: Playwright page object
+    - passengers: List of [Name, Age, Gender] entries
+    """
+
+    for idx, (name, age, gender) in enumerate(passengers):
+        # Add new passenger slot if idx > 0
+        if idx > 0:
+            await page.click('div.zeroPadding.pull-left.ng-star-inserted')
+            await page.wait_for_timeout(500)  # Small wait after adding
+
+
+        name_input = page.locator("div.Layer_7.col-sm-3.col-xs-12").nth(idx)
+        await name_input.click()
+        # await name_input.fill('')  # Clear existing text if any
+        await name_input.type(name, delay=150)
+
+        # Fill Age
+        age_input = page.locator("div.Layer_7.col-sm-1.col-xs-6").nth(idx)
+        await age_input.click()
+        # await age_input.fill('')
+        await age_input.type(age, delay=150)
+
+        # Fill Gender
+        # await page.keyboard.press('Tab')
+        gender_dropdown = page.locator("select[formcontrolname='passengerGender']").nth(idx)
+
+        if gender.upper() == 'M':
+            await gender_dropdown.select_option('M')
+        elif gender.upper() == 'F':
+            await gender_dropdown.select_option('F')
+        elif gender.upper() == 'T':
+            await gender_dropdown.select_option('T')
+        else:
+            raise ValueError(f"Unknown gender '{gender}' for passenger {name}")
+        
+        
+        # (Country and berth preference are defaulted, not changed)
+
+    radio_button = page.locator("p-radiobutton[id='2']")
+    await radio_button.click() 
+
+    await page.click('button.train_Search.btnDefault')
+
+    print(f"✅ Successfully filled {len(passengers)} passengers.")
+
+
+
+
 async def automate_booking(session_data):
     """
     Starts IRCTC booking automation, logs in, fills user ID and password,
@@ -166,6 +219,8 @@ async def complete_booking(session_data, browser, page):
     # await page.wait_for_timeout(2000)
 
     await select_train_and_class_and_book(page, session_data)
+
+    await fill_passenger_details(page, session_data['passengers'])
 
     # # Select desired Train
     # await page.get_by_text(session_data['train_type']).click()
