@@ -180,7 +180,26 @@ async def handle_payment(session_data, browser, page):
     await page.click("button[type='submit']")
     await page.wait_for_timeout(1000)
 
-   
+    await page.locator("img[src$='./assets/images/multiplepaymenticon.png']").click()
+    await page.wait_for_timeout(2000)
+
+    # await page.locator("div.col-pad.col-xs-12.bank-text").fourth().click()
+    # await page.wait_for_timeout(500)
+
+    # https://www.irctc.co.in/nget/assets/images/payment/116.png
+
+    # await page.locator("img[src$='./assets/images/payment/116.png']").nth(3).click()
+    # await page.wait_for_timeout(1000)
+
+    await page.get_by_role("cell", name="Rail Icon Credit & Debit cards / Wallet / UPI (Powered by PhonePe)").get_by_role("img").click()
+    await page.wait_for_timeout(1000)
+
+    # get_by_role("cell", name="Rail Icon Credit & Debit cards / Wallet / UPI (Powered by PhonePe)").get_by_role("img")
+
+    await page.click("button.btn.btn-primary")
+    await page.wait_for_timeout(5000)
+
+    
     
     return "Successfully filled captch 2"
 
