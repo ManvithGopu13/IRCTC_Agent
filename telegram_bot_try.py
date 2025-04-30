@@ -10,7 +10,7 @@ load_dotenv()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 # States for ConversationHandler
-FROM, TO, DATE, CLASS, TRAIN_TYPE, NUM_PASSENGERS, PASSENGER_DETAILS, CREDENTIALS, CAPTCHA = range(9)
+FROM, TO, DATE, CLASS, TRAIN_TYPE, NUM_PASSENGERS, PASSENGER_DETAILS, CREDENTIALS, CAPTCHA, CAPTCHA_2 = range(10)
 
 # Temporary storage for user session
 user_sessions = {}
@@ -82,15 +82,38 @@ async def handle_captcha(update: Update, context: ContextTypes.DEFAULT_TYPE):
     browser = user_sessions[user_id]['browser']
     page = user_sessions[user_id]['page']
 
-    ticket_pdf_path = await complete_booking(user_sessions[user_id], browser, page)
+    captcha_image_path_2, browser, page = await complete_booking(user_sessions[user_id], browser, page)
 
-    await update.message.reply_document(InputFile(ticket_pdf_path), caption="✅ Here is your booked ticket! Safe travels!")
+    user_sessions[update.effective_user.id]['browser'] = browser
+    user_sessions[update.effective_user.id]['page'] = page
+    user_sessions[update.effective_user.id]['captcha_image_path'] = captcha_image_path_2
 
-    # Cleanup session
-    await browser.close()
-    del user_sessions[user_id]
+    # Send captcha to user
+    with open(captcha_image_path_2, 'rb') as captcha_file:
+        await update.message.reply_photo(captcha_file, caption="🛡 Please enter the captcha text:")
 
-    return ConversationHandler.END
+    return CAPTCHA_2
+
+
+async def handle_captcha_2(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    user_sessions[user_id]['captcha_2'] = update.message.text
+
+    from automation_script import complete_booking
+    browser = user_sessions[user_id]['browser']
+    page = user_sessions[user_id]['page']
+
+    from automation_script import handle_payment
+    ticket_pdf_path = await handle_payment(user_sessions[user_id], browser, page)
+    print("Ticket PDF Path:", ticket_pdf_path)
+
+    # await update.message.reply_document(InputFile(ticket_pdf_path), caption="✅ Here is your booked ticket! Safe travels!")
+
+    # # Cleanup session
+    # await browser.close()
+    # del user_sessions[user_id]
+
+    # return ConversationHandler.END
 
 # Bot Setup
 app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
@@ -107,6 +130,8 @@ conv_handler = ConversationHandler(
         PASSENGER_DETAILS: [MessageHandler(filters.TEXT & ~filters.COMMAND, passenger_details)],
         CREDENTIALS: [MessageHandler(filters.TEXT & ~filters.COMMAND, credentials)],
         CAPTCHA: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_captcha)],
+        CAPTCHA_2: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_captcha_2)],
+        
     },
     fallbacks=[]
 )

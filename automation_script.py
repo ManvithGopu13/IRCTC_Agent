@@ -110,8 +110,10 @@ async def fill_passenger_details(page, passengers):
 
     radio_button = page.locator("p-radiobutton[id='2']")
     await radio_button.click() 
+    await page.wait_for_timeout(500)
 
     await page.click('button.train_Search.btnDefault')
+    await page.wait_for_timeout(500)
 
     print(f"✅ Successfully filled {len(passengers)} passengers.")
 
@@ -168,6 +170,20 @@ async def automate_booking(session_data):
     await page.locator("img.captcha-img").screenshot(path=captcha_path)
 
     return captcha_path, browser, page
+
+
+async def handle_payment(session_data, browser, page):
+    await page.click("input[formcontrolname='captcha']")
+    await page.keyboard.type(session_data['captcha_2'], delay=150)
+
+    await page.wait_for_timeout(500)
+    await page.click("button[type='submit']")
+    await page.wait_for_timeout(1000)
+
+   
+    
+    return "Successfully filled captch 2"
+
 
 
 async def complete_booking(session_data, browser, page):
@@ -230,23 +246,13 @@ async def complete_booking(session_data, browser, page):
     # await page.click("button[label='Book Now']")
     # await page.wait_for_timeout(3000)
 
-    # Fill Passenger Details
-    for idx, (name, age, gender) in enumerate(session_data['passengers']):
-        await page.fill(f"input[formcontrolname='passengerName{idx}']", name.strip())
-        await page.fill(f"input[formcontrolname='passengerAge{idx}']", age.strip())
-        await page.select_option(f"select[formcontrolname='passengerGender{idx}']", gender.strip().upper())
+    # Wait for captcha to appear
+    await page.wait_for_selector("img.captcha-img")
 
-    # Continue to booking
-    await page.click("button[label='Continue Booking']")
-    await page.wait_for_timeout(5000)
+    # Save captcha image
+    captcha_path = f"captcha_2_{session_data['credentials']['username']}.png"
+    await page.locator("img.captcha-img").screenshot(path=captcha_path)
 
-    # IMPORTANT: Payment must be done manually by user.
+    return captcha_path, browser, page
 
-    # For demo: we assume booking is successful
-    # Save dummy ticket PDF
-    ticket_pdf_path = f"ticket_{session_data['credentials']['username']}.pdf"
 
-    with open(ticket_pdf_path, "wb") as f:
-        f.write(b"%PDF-1.4\n% Dummy Ticket PDF\n")  # simple placeholder content
-
-    return ticket_pdf_path
