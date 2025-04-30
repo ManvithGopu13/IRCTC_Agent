@@ -199,9 +199,18 @@ async def handle_payment(session_data, browser, page):
     await page.click("button.btn.btn-primary")
     await page.wait_for_timeout(5000)
 
+    qr_button = page.locator("button.showQRButton__1hkk9")
+    await qr_button.click()
+    await page.wait_for_timeout(1000)
+
+    await page.wait_for_selector("img.qr__3q4Hu")
+
+    # Save captcha image
+    qr_path = f"qrCode_{session_data['credentials']['username']}.png"
+
+    await page.locator("img.qr__3q4Hu").screenshot(path = qr_path)
     
-    
-    return "Successfully filled captch 2"
+    return qr_path, browser, page
 
 
 

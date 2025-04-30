@@ -104,8 +104,16 @@ async def handle_captcha_2(update: Update, context: ContextTypes.DEFAULT_TYPE):
     page = user_sessions[user_id]['page']
 
     from automation_script import handle_payment
-    ticket_pdf_path = await handle_payment(user_sessions[user_id], browser, page)
-    print("Ticket PDF Path:", ticket_pdf_path)
+    qr_path, browser, page = await handle_payment(user_sessions[user_id], browser, page)
+
+    user_sessions[update.effective_user.id]['browser'] = browser
+    user_sessions[update.effective_user.id]['page'] = page
+    user_sessions[update.effective_user.id]['qr_path'] = qr_path
+
+    with open(qr_path, 'rb') as qr_file:
+        await update.message.reply_photo(qr_file, caption="🛡 Scan QR to Pay")
+
+    print("QR code has been sent to the user.")
 
     # await update.message.reply_document(InputFile(ticket_pdf_path), caption="✅ Here is your booked ticket! Safe travels!")
 
